@@ -13,6 +13,9 @@ public sealed record StoredModuleRepository(string Id, string Name, string Kind,
 
 public sealed class ModuleRepositoryStore(ModuleLayout layout, IDataProtectionProvider protection)
 {
+    private const string OfficialRepositoryId = "official";
+    private static readonly StoredModuleRepository OfficialRepository =
+        new(OfficialRepositoryId, "官方模块仓库", "github", "moeacgx/Telegram-Panel-Modules", "main", null);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly IDataProtector _protector = protection.CreateProtector("TelegramPanel.ModuleRepositories.v1");
     private readonly string _path = Path.Combine(layout.Root, "repositories.json");
@@ -42,6 +45,9 @@ public sealed class ModuleRepositoryStore(ModuleLayout layout, IDataProtectionPr
 
     public async Task<ModuleRepositoryInfo> SaveAsync(string? id, ModuleRepositoryInput input, CancellationToken ct)
     {
+        if (string.Equals(id, OfficialRepositoryId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("官方模块仓库不可编辑");
+
         var name = (input.Name ?? "").Trim();
         var kind = (input.Kind ?? "").Trim();
         var location = (input.Location ?? "").Trim();
@@ -80,6 +86,9 @@ public sealed class ModuleRepositoryStore(ModuleLayout layout, IDataProtectionPr
 
     public async Task DeleteAsync(string id, CancellationToken ct)
     {
+        if (string.Equals(id, OfficialRepositoryId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("官方模块仓库不可移除");
+
         await _gate.WaitAsync(ct);
         try
         {
@@ -97,9 +106,16 @@ public sealed class ModuleRepositoryStore(ModuleLayout layout, IDataProtectionPr
     private async Task<List<StoredModuleRepository>> ReadAsync(CancellationToken ct)
     {
         if (!File.Exists(_path))
-            return [new("official", "官方模块仓库", "github", "moeacgx/Telegram-Panel-Modules", "main", null)];
-        return JsonSerializer.Deserialize<List<StoredModuleRepository>>(await File.ReadAllTextAsync(_path, ct), Json)
+            return [OfficialRepository];
+
+        var items = JsonSerializer.Deserialize<List<StoredModuleRepository>>(
+                await File.ReadAllTextAsync(_path, ct), Json)
             ?? throw new InvalidOperationException("仓库配置无效，请从备份恢复 repositories.json");
+
+        // 官方仓库是宿主提供的系统入口，不能因旧配置文件缺少该项而消失。
+        items.RemoveAll(x => string.Equals(x.Id, OfficialRepositoryId, StringComparison.OrdinalIgnoreCase));
+        items.Insert(0, OfficialRepository);
+        return items;
     }
 
     private async Task WriteAsync(List<StoredModuleRepository> items, CancellationToken ct)

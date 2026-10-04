@@ -12,12 +12,12 @@
     </nav>
     <p class="muted">想修改演示模块或发布自己的模块？先 Fork 官方仓库，按维护说明修改源码、构建并发布模块包、更新目录，再点击“添加仓库”填写你的 owner/repo。私有仓库还需配置只读访问令牌。</p>
     <div class="repository-toolbar">
-      <el-select v-model="selectedId" placeholder="选择仓库" :disabled="busy" @change="clearCatalog" style="min-width: 260px">
+      <el-select v-model="selectedId" placeholder="选择仓库" :disabled="busy" @change="fetchCatalog" style="min-width: 260px">
         <el-option v-for="repo in repositories" :key="repo.id" :label="repo.name" :value="repo.id" />
       </el-select>
       <el-button :disabled="!selected || busy" @click="fetchCatalog">连接 / 刷新目录</el-button>
-      <el-button :disabled="!selected || busy" @click="edit(selected)">编辑仓库</el-button>
-      <el-button type="danger" plain :disabled="!selected || busy" @click="remove">移除仓库</el-button>
+      <el-button :disabled="!selected || selected.id === 'official' || busy" @click="edit(selected)">编辑仓库</el-button>
+      <el-button type="danger" plain :disabled="!selected || selected.id === 'official' || busy" @click="remove">移除仓库</el-button>
     </div>
     <p v-if="selected" class="muted">{{ selected.location }} · {{ selected.hasToken ? '已配置令牌' : '未配置令牌' }}</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-3" />
@@ -94,7 +94,8 @@ async function save() {
     selectedId.value = repository.id
     clearCatalog()
     await load()
-    ElMessage.success('仓库已保存，点击连接可检查目录与访问权限')
+    ElMessage.success('仓库已保存，正在连接并检查目录与访问权限')
+    await fetchCatalog()
   } finally { saving.value = false }
 }
 async function remove() {
@@ -124,7 +125,14 @@ async function install(module: RepositoryModule) {
     emit('installed')
   } finally { busy.value = false }
 }
-onMounted(load)
+onMounted(async () => {
+  try {
+    await load()
+    if (selected.value) await fetchCatalog()
+  } catch (e: any) {
+    error.value = extractApiErrorMessage(e?.response?.data) || '无法加载模块仓库列表'
+  }
+})
 </script>
 
 <style scoped>
