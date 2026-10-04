@@ -34,6 +34,24 @@ public sealed class ModuleRepositoryTests : IDisposable
         Assert.DoesNotContain(await store.ListAsync(), x => x.Id == created.Id);
     }
 
+    [Fact]
+    public async Task Official_repository_is_seeded_into_existing_configuration_and_is_immutable()
+    {
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(
+            Path.Combine(_root, "repositories.json"),
+            "[{"id":"personal","name":"个人","kind":"github","location":"owner/modules","ref":"main"}]" );
+
+        var store = new ModuleRepositoryStore(Layout, new EphemeralDataProtectionProvider());
+        var repositories = await store.ListAsync();
+
+        Assert.Equal("official", repositories[0].Id);
+        Assert.Contains(repositories, repository => repository.Id == "personal");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(
+            "official", new("修改官方", "github", "other/modules"), default));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.DeleteAsync("official", default));
+    }
+
     [Theory]
     [InlineData("127.0.0.1")]
     [InlineData("10.1.2.3")]
