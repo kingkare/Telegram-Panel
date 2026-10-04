@@ -40,7 +40,7 @@ public sealed class ModuleRepositoryTests : IDisposable
         Directory.CreateDirectory(_root);
         await File.WriteAllTextAsync(
             Path.Combine(_root, "repositories.json"),
-            "[{"id":"personal","name":"个人","kind":"github","location":"owner/modules","ref":"main"}]" );
+            "[{\"id\":\"personal\",\"name\":\"个人\",\"kind\":\"github\",\"location\":\"owner/modules\",\"ref\":\"main\"}]" );
 
         var store = new ModuleRepositoryStore(Layout, new EphemeralDataProtectionProvider());
         var repositories = await store.ListAsync();
