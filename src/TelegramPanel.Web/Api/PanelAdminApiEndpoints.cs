@@ -1354,8 +1354,9 @@ public static class PanelAdminApiEndpoints
         AccountTelegramToolsService accountTools,
         CancellationToken cancellationToken)
     {
-        var (success, error, hasLoginEmail, pattern) = await accountTools.GetLoginEmailStatusAsync(id, cancellationToken);
-        return Results.Ok(new LoginEmailStatusDto(success, error, hasLoginEmail, pattern));
+        var status = await accountTools.GetLoginEmailDisplayAsync(id, cancellationToken);
+        return Results.Ok(new LoginEmailStatusDto(status.Success, status.Error, status.HasLoginEmail,
+            status.LoginEmailPattern, status.LoginEmail, status.VerificationStatus));
     }
 
     private static async Task<IResult> SetLoginEmailAsync(
@@ -8383,7 +8384,9 @@ public sealed record LoginEmailStatusDto(
     bool Success,
     string? Error,
     bool HasLoginEmail,
-    string? LoginEmailPattern);
+    string? LoginEmailPattern,
+    string? LoginEmail = null,
+    string VerificationStatus = "unavailable");
 
 public sealed record EmailOperationResultDto(bool Success, string? Error, string? EmailPattern);
 public sealed record ImportResultDto(

@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
 
     // 实体集合
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountLoginEmail> AccountLoginEmails => Set<AccountLoginEmail>();
     public DbSet<AccountCategory> AccountCategories => Set<AccountCategory>();
     public DbSet<AccountChannel> AccountChannels => Set<AccountChannel>();
     public DbSet<AccountGroup> AccountGroups => Set<AccountGroup>();
@@ -131,6 +132,14 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         // Account配置
+        modelBuilder.Entity<AccountLoginEmail>(entity =>
+        {
+            entity.HasKey(x => x.AccountId);
+            entity.Property(x => x.AccountId).ValueGeneratedNever();
+            entity.HasOne<Account>().WithOne().HasForeignKey<AccountLoginEmail>(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Account>(entity =>
         {
             entity.HasKey(e => e.Id);
