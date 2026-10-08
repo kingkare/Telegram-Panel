@@ -683,6 +683,8 @@ export interface LoginEmailStatus {
   error?: string | null
   hasLoginEmail: boolean
   loginEmailPattern?: string | null
+  loginEmail?: string | null
+  verificationStatus?: 'verified' | 'unverified' | 'unavailable'
 }
 
 export interface BatchTask {

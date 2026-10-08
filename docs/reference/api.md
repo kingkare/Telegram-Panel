@@ -49,12 +49,42 @@ Vue 后台使用 `/api/panel` 下的管理接口。开启后台登录时，除�
 - `POST /api/panel/accounts/{id}/telegram-status`：刷新单个账号 Telegram 状态
 - `POST /api/panel/accounts/telegram-status`：批量刷新账号 Telegram 状态
 - `POST /api/panel/accounts/cleanup-waste`：复查并清理明确失效的账号
-- `POST /api/panel/accounts/batch/category`：批量修改已选账号分类；`categoryId=null` 表示改为未分类，只影响请求里的 `accountIds`，不会覆盖分类的全部成员。
+- `POST /api/panel/accounts/batch/category`：由账号列表页发起的批量修改账号分类操作；`categoryId=null` 表示改为未分类，只影响请求里的 `accountIds`，不会覆盖分类的全部成员。自 v1.31.77 之后包含页面调整的开发版起，账号分类页只维护分类并显示账号数量，不再提供此操作入口；接口、鉴权和数据合同保持不变。
 - `POST /api/panel/accounts/batch/recovery-email`：批量换绑 2FA 找回邮箱，可选同时换绑登录邮箱。单个账号可能等待 Telegram 发信和 Cloud Mail 收码；前端会按账号逐个调用该接口并聚合结果，外部自动化调用大量账号时也应拆成单账号或小批次请求，避免长连接被浏览器、Nginx 或网关超时中断。
-- `GET /api/panel/accounts/{id}/login-email`：读取账号当前登录邮箱状态，返回 `hasLoginEmail` 与 Telegram 返回的掩码 `loginEmailPattern`；账号详情页会展示该状态。该接口不返回完整邮箱地址，调用方只能从掩码中可靠读取域名。
+- `GET /api/panel/accounts/{id}/login-email`：查询 Telegram 当前登录邮箱状态，结合本地已确认记录返回邮箱展示与核验结果，字段和失败语义见下文。
+- `POST /api/panel/accounts/{id}/login-email`：请求 `{email}`，向目标地址发送验证码；发送成功仅保存待确认地址，不改写已确认的当前邮箱。
+- `POST /api/panel/accounts/{id}/login-email/confirm`：请求 `{code}`；Telegram 确认成功后保存完整邮箱与官方掩码，结束待确认状态。
 - `GET /api/panel/accounts/{id}/devices`：读取账号在线设备；返回的 `hash` 始终是十进制字符串，避免 JavaScript 处理 Telegram 64 位授权哈希时丢失精度。
 - `POST /api/panel/accounts/{id}/devices/{hash}/kick`：踢出指定非当前设备；`hash` 使用上述字符串原样放入 URL。
 - `POST /api/panel/accounts/{id}/devices/kick-all`：踢出所有其他设备并保留当前授权。
+
+### 登录邮箱持久化与核验
+
+适用版本：v1.31.77 之后包含本次改动的开发版，需要管理员鉴权与数据库迁移
+`20261009000000_AddAccountLoginEmails`（新增 `AccountLoginEmails` 表）。
+`GET /api/panel/accounts/{id}/login-email` 保留 `success/error/hasLoginEmail/loginEmailPattern`，
+新增可为空的 `loginEmail` 和 `verificationStatus`：
+
+- `verified`：本地有经验证码确认的完整地址，本次官方掩码核验一致，可以展示 `loginEmail`。
+- `unverified`：存在完整地址，但本次官方查询失败、官方掩码为空或缺少确认时的核验基线；必须同时展示未核验状态，查询失败时接口通过 `error` 返回原因。
+- `unavailable`：没有可供展示的本地完整地址，使用当前官方掩码或无邮箱状态；若 `success=false`，只能显示查询失败，不能推断无邮箱。
+
+`loginEmailPattern` 始终表示 Telegram 返回的官方邮箱掩码；星号不能用于还原完整邮箱。
+完整地址来自本面板曾经完成验证码确认并持久化的记录，不能把待确认目标地址当作当前邮箱。
+
+详情查询以官方状态核验本地记录：掩码一致时显示本地完整地址；只有掩码明显不匹配或官方明确
+无邮箱时，旧记录才失效，分别回退官方掩码或无邮箱状态。查询失败与无邮箱不同：历史完整地址保留但标记为
+未核验，客户端不得根据历史值宣称当前云端状态已确认。旧账号没有完整地址记录时，只能显示官方掩码。
+确认成功但首次 `GetPassword` 失败或没有有效掩码时，完整地址仍会保存，状态为 `unverified`；
+后续查询不得凭新掩码自动补建确认时的基线。官方表示有邮箱但掩码为空时同样保留地址并返回未核验。
+掩码一致性检查不能区分恰好使用相同掩码的不同邮箱，不等于重新获取了完整云端地址。
+手动、批量和 `auto_change_login_email` 计划任务通过 Core 共享更换与确认流程写入同一份记录。
+
+验收时检查发送、确认、再次查询及重启后的展示，并覆盖掩码不一致、无邮箱、查询失败和旧账号无缓存。
+失败先检查数据库迁移、Session、出口与验证码确认结果；回滚前备份数据库，旧程序会忽略新增记录，
+不得手动删除新增表或迁移历史。完整约束见[账号详情密码与登录邮箱合同](../developer/documentation.md)。
+
+### 账号编号
 
 自 v1.31.57 起，账号列表、账号详情、任务账号候选和风控确认中的账号 DTO 都返回
 `displayNumber`。这是面向用户展示和手工填写任务账号范围的账号编号；`id` 仍是内部数据库

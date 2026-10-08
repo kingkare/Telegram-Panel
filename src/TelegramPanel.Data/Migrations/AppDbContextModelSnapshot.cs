@@ -17,6 +17,21 @@ namespace TelegramPanel.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.29");
 
+            modelBuilder.Entity("TelegramPanel.Data.Entities.AccountLoginEmail", b =>
+                {
+                    b.Property<int>("AccountId").HasColumnType("INTEGER");
+                    b.Property<string>("ConfirmedEmail").HasColumnType("TEXT");
+                    b.Property<string>("ConfirmedPattern").HasColumnType("TEXT");
+                    b.Property<string>("PendingEmail").HasColumnType("TEXT");
+                    b.HasKey("AccountId");
+                    b.ToTable("AccountLoginEmails");
+                    b.HasOne("TelegramPanel.Data.Entities.Account", null)
+                        .WithOne()
+                        .HasForeignKey("TelegramPanel.Data.Entities.AccountLoginEmail", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TelegramPanel.Data.Entities.Account", b =>
                 {
                     b.Property<int>("Id")

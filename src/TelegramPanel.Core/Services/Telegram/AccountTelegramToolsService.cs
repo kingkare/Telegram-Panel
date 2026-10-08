@@ -28,6 +28,7 @@ public class AccountTelegramToolsService
     private readonly ILogger<AccountTelegramToolsService> _logger;
     private readonly TelegramAccountUpdateHub _updateHub;
     private readonly ISessionPathResolver _sessionPathResolver;
+    private readonly AccountLoginEmailService _loginEmails;
 
     public AccountTelegramToolsService(
         AccountManagementService accountManagement,
@@ -36,7 +37,8 @@ public class AccountTelegramToolsService
         IAccountProxyResolver proxyResolver,
         ILogger<AccountTelegramToolsService> logger,
         TelegramAccountUpdateHub updateHub,
-        ISessionPathResolver sessionPathResolver)
+        ISessionPathResolver sessionPathResolver,
+        AccountLoginEmailService loginEmails)
     {
         _accountManagement = accountManagement;
         _clientPool = clientPool;
@@ -45,6 +47,7 @@ public class AccountTelegramToolsService
         _logger = logger;
         _updateHub = updateHub;
         _sessionPathResolver = sessionPathResolver;
+        _loginEmails = loginEmails;
     }
 
     /// <summary>
@@ -812,10 +815,20 @@ public class AccountTelegramToolsService
     }
 
     /// <summary>
-    /// 获取登录邮箱状态（仅返回掩码 Pattern，不返回真实邮箱）。
+    /// 获取登录邮箱状态，保留自动换域名调用使用的掩码合同。
     /// </summary>
     public async Task<(bool Success, string? Error, bool HasLoginEmail, string? LoginEmailPattern)>
         GetLoginEmailStatusAsync(int accountId, CancellationToken cancellationToken = default)
+    {
+        var result = await GetLoginEmailDisplayAsync(accountId, cancellationToken);
+        return (result.Success, result.Error, result.HasLoginEmail, result.LoginEmailPattern);
+    }
+
+    public Task<LoginEmailDisplayResult> GetLoginEmailDisplayAsync(int accountId, CancellationToken cancellationToken = default) =>
+        _loginEmails.GetAsync(accountId, () => ReadLoginEmailStatusAsync(accountId, cancellationToken), cancellationToken);
+
+    private async Task<(bool Success, string? Error, bool HasLoginEmail, string? LoginEmailPattern)>
+        ReadLoginEmailStatusAsync(int accountId, CancellationToken cancellationToken)
     {
         try
         {
@@ -865,10 +878,12 @@ public class AccountTelegramToolsService
             var client = await GetOrCreateConnectedClientAsync(accountId, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var sent = await client.Account_SendVerifyEmailCode(new EmailVerifyPurposeLoginChange(), email);
-            var pattern = (sent.email_pattern ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(pattern))
-                pattern = null;
+            var pattern = await _loginEmails.SendAsync(accountId, email, async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var sent = await client.Account_SendVerifyEmailCode(new EmailVerifyPurposeLoginChange(), email);
+                return string.IsNullOrWhiteSpace(sent.email_pattern) ? null : sent.email_pattern.Trim();
+            }, cancellationToken);
 
             return (true, null, pattern);
         }
@@ -897,7 +912,12 @@ public class AccountTelegramToolsService
             var client = await GetOrCreateConnectedClientAsync(accountId, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            _ = await client.Account_VerifyEmail(new EmailVerifyPurposeLoginChange(), new EmailVerificationCode { code = code });
+            await _loginEmails.ConfirmAsync(accountId, async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var verified = await client.Account_VerifyEmail(new EmailVerifyPurposeLoginChange(), new EmailVerificationCode { code = code });
+                return verified.email;
+            }, () => ReadLoginEmailStatusAsync(accountId, CancellationToken.None), cancellationToken);
             return (true, null);
         }
         catch (Exception ex)
