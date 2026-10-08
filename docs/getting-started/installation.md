@@ -124,6 +124,10 @@ docker compose down
 
 ## 下一步
 
+自 v1.31.77 之后包含页面调整的开发版起，在“账号分类”页创建和维护分类、查看账号数量；
+在“账号列表”页查看具体账号、筛选分类成员和批量调整归属。操作和排查步骤见
+[账号导入指南](../guides/account-import.md)中的“导入时选择分类”一节。
+
 - 账号导入：见 [账号导入（Zip / TData）](../guides/account-import.md)
 - 新号必看：见 [防冻结指南](../guides/anti-freeze.md)
 - 列表/批量能力依赖同步：见 [同步说明](../guides/sync.md)

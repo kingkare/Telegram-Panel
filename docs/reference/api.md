@@ -49,7 +49,7 @@ Vue 后台使用 `/api/panel` 下的管理接口。开启后台登录时，除�
 - `POST /api/panel/accounts/{id}/telegram-status`：刷新单个账号 Telegram 状态
 - `POST /api/panel/accounts/telegram-status`：批量刷新账号 Telegram 状态
 - `POST /api/panel/accounts/cleanup-waste`：复查并清理明确失效的账号
-- `POST /api/panel/accounts/batch/category`：批量修改已选账号分类；`categoryId=null` 表示改为未分类，只影响请求里的 `accountIds`，不会覆盖分类的全部成员。
+- `POST /api/panel/accounts/batch/category`：由账号列表页发起的批量修改账号分类操作；`categoryId=null` 表示改为未分类，只影响请求里的 `accountIds`，不会覆盖分类的全部成员。自 v1.31.77 之后包含页面调整的开发版起，账号分类页只维护分类并显示账号数量，不再提供此操作入口；接口、鉴权和数据合同保持不变。
 - `POST /api/panel/accounts/batch/recovery-email`：批量换绑 2FA 找回邮箱，可选同时换绑登录邮箱。单个账号可能等待 Telegram 发信和 Cloud Mail 收码；前端会按账号逐个调用该接口并聚合结果，外部自动化调用大量账号时也应拆成单账号或小批次请求，避免长连接被浏览器、Nginx 或网关超时中断。
 - `GET /api/panel/accounts/{id}/login-email`：读取账号当前登录邮箱状态，返回 `hasLoginEmail` 与 Telegram 返回的掩码 `loginEmailPattern`；账号详情页会展示该状态。该接口不返回完整邮箱地址，调用方只能从掩码中可靠读取域名。
 - `GET /api/panel/accounts/{id}/devices`：读取账号在线设备；返回的 `hash` 始终是十进制字符串，避免 JavaScript 处理 Telegram 64 位授权哈希时丢失精度。
