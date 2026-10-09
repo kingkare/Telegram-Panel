@@ -4,30 +4,26 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../src/views/AccountCategories.vue', import.meta.url), 'utf8')
 
-test('账号分类页顶部提供账号筛选和批量修改分类操作栏', () => {
-  assert.match(source, /账号批量改分类/)
-  assert.match(source, /class="toolbar category-account-toolbar"/)
-  assert.match(source, /v-model="filterCategoryId"/)
-  assert.match(source, /v-model="accountSearch"/)
-  assert.match(source, /v-model="batchCategoryId"/)
-  assert.match(source, /全选当前筛选/)
-  assert.match(source, /批量修改分类（已选）/)
-  assert.match(source, /已选 \{\{ selectedAccountIds\.length \}\}/)
+test('账号分类页只展示分类表和分类维护操作', () => {
+  assert.equal((source.match(/<el-table\s/g) || []).length, 1)
+  assert.match(source, /:data="categories"/)
+  assert.match(source, /分类管理/)
+  assert.match(source, /添加分类/)
+  assert.match(source, /编辑分类/)
+  assert.match(source, /@click="deleteCategory\(row\)"/)
+  assert.doesNotMatch(source, /账号批量改分类|账号信息|手机号|全选当前筛选|category-account-toolbar/)
 })
 
-test('账号分类批量操作使用账号列表同一批量分类接口', () => {
-  assert.match(source, /type="selection"/)
-  assert.match(source, /@selection-change="onAccountSelectionChange"/)
-  assert.match(source, /async function applyBatchCategory\(\)/)
-  assert.match(source, /const categoryId = batchCategoryId\.value > 0 \? batchCategoryId\.value : null/)
-  assert.match(source, /panelApi\.batchSetAccountCategory\(selectedAccountIds\.value, categoryId\)/)
-  assert.match(source, /确认批量修改分类/)
-  assert.doesNotMatch(source, /saveAccountCategoryAssignments|保存勾选到分类|分类绑定账号/)
+test('分类维护仅刷新分类数据，不请求账号明细', () => {
+  assert.match(source, /onMounted\(loadCategories\)/)
+  assert.match(source, /panelApi\.accountCategories\(\)/)
+  assert.match(source, /panelApi\.createAccountCategory\(/)
+  assert.match(source, /panelApi\.updateAccountCategory\(/)
+  assert.match(source, /panelApi\.deleteAccountCategory\(/)
+  assert.doesNotMatch(source, /panelApi\.(accounts|batchSetAccountCategory)\(|loadAllAccounts|AccountListItem/)
 })
 
-test('账号分类页移动端操作栏和创建表单会纵向收缩', () => {
+test('账号分类页移动端创建表单会纵向收缩', () => {
   assert.match(source, /@media \(max-width: 720px\)/)
-  assert.match(source, /\.category-account-toolbar \.search/)
-  assert.match(source, /\.category-account-toolbar \.el-button/)
   assert.match(source, /grid-template-columns: 1fr;/)
 })

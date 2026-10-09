@@ -237,7 +237,10 @@
       <template v-else-if="details.account">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="注册时间（估算，非百分百正确）">{{ formatTime(details.account.estimatedRegistrationAt, '-') }}</el-descriptions-item>
-          <el-descriptions-item label="登录邮箱">{{ details.loginEmailStatusText || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="登录邮箱">
+            {{ details.loginEmailStatusText || '-' }}
+            <div v-if="details.loginEmailHint" class="form-hint no-offset">{{ details.loginEmailHint }}</div>
+          </el-descriptions-item>
           <el-descriptions-item label="导入时间">{{ formatTime(details.account.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="Session 路径">{{ details.account.sessionPath }}</el-descriptions-item>
         </el-descriptions>
@@ -248,11 +251,7 @@
             <el-input v-model="details.form.remark" type="textarea" :rows="3" maxlength="500" show-word-limit />
           </el-form-item>
           <el-form-item label="当前保存的二级密码">
-            <el-input v-model="details.form.twoFactorPassword" :type="details.showPassword ? 'text' : 'password'">
-              <template #append>
-                <el-button :icon="details.showPassword ? Hide : View" @click="details.showPassword = !details.showPassword" />
-              </template>
-            </el-input>
+            <el-input v-model="details.form.twoFactorPassword" type="text" autocomplete="off" />
           </el-form-item>
           <el-form-item label="设备指纹">
             <el-select v-model="details.form.deviceProfileKey" class="full" filterable>
@@ -719,6 +718,7 @@
 </template>
 
 <script setup lang="ts">
+import { loginEmailDisplay } from '@/utils/loginEmailDisplay'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import {
@@ -728,7 +728,6 @@ import {
   Connection,
   Delete,
   Edit,
-  Hide,
   InfoFilled,
   Lock,
   Message,
@@ -743,7 +742,6 @@ import {
   Switch,
   SwitchButton,
   UserFilled,
-  View,
 } from '@element-plus/icons-vue'
 import type { TableInstance, UploadFile } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -865,9 +863,9 @@ const details = reactive({
   visible: false,
   loading: false,
   saving: false,
-  showPassword: false,
   account: null as AccountDetail | null,
   loginEmailStatusText: '',
+  loginEmailHint: '',
   form: {
     remark: '',
     twoFactorPassword: '',
@@ -1166,6 +1164,7 @@ async function openDetails(row: Row) {
   details.loading = true
   details.account = null
   details.loginEmailStatusText = ''
+  details.loginEmailHint = ''
   try {
     const [account, loginEmailStatus] = await Promise.all([
       panelApi.account(row.id),
@@ -1173,6 +1172,7 @@ async function openDetails(row: Row) {
     ])
     details.account = account
     details.loginEmailStatusText = formatLoginEmailStatus(loginEmailStatus)
+    details.loginEmailHint = loginEmailDisplay(loginEmailStatus).hint
     details.form.remark = account.remark || ''
     details.form.twoFactorPassword = account.twoFactorPassword || ''
     details.form.deviceProfileKey = account.deviceProfileKey || ''
@@ -1181,10 +1181,7 @@ async function openDetails(row: Row) {
   }
 }
 function formatLoginEmailStatus(status: LoginEmailStatus | null) {
-  if (!status) return '查询失败'
-  if (!status.success) return status.error || '查询失败'
-  if (status.loginEmailPattern) return `${status.hasLoginEmail ? '已启用' : '未启用'}：${status.loginEmailPattern}`
-  return status.hasLoginEmail ? '已启用' : '未启用'
+  return loginEmailDisplay(status).text
 }
 
 
@@ -1755,9 +1752,7 @@ async function openEmailDialog(kind: 'recovery' | 'login', row: Row) {
         : status.error || ''
     } else {
       const status = await panelApi.loginEmailStatus(row.id)
-      emailDialog.statusText = status.success
-        ? `${status.hasLoginEmail ? '已启用登录邮箱' : '未启用登录邮箱'}${status.loginEmailPattern ? `：${status.loginEmailPattern}` : ''}`
-        : status.error || ''
+      emailDialog.statusText = formatLoginEmailStatus(status)
     }
   } catch {
     // 错误已由拦截器提示

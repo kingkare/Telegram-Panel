@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<ISessionImporter, SessionImporter>();
         services.AddScoped<AccountTelegramToolsService>();
+        services.AddSingleton<AccountLoginEmailService>();
         services.AddScoped<BotTelegramService>();
         services.AddScoped<ProxyEgressProbeService>();
         services.AddScoped<IProxyEgressProbeService>(sp =>
